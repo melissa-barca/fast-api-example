@@ -1,15 +1,69 @@
 from fastapi import FastAPI, Request
+from typing import Union
+from enum import Enum
+from pydantic import BaseModel
+
+
 import subprocess
 import os
 
+class ModelName(str, Enum):
+    alexnet = "alexnet"
+    resnet = "resnet"
+    lenet = "lenet"
 
-url = subprocess.run('echo ${RS_SERVER_URL}${RS_SESSION_URL}/p/$(/usr/lib/rstudio-server/bin/rserver-url 8000)', stdout=subprocess.PIPE, shell=True).stdout.decode().strip()
-app = FastAPI(root_path=url)
+class Item(BaseModel):
+    name: str
+    description: Union[str, None] = None
+    price: float
+    tax: Union[float, None] = None
+
+
+app = FastAPI()
+
+fake_items_db = [{"item_name": "Foo"}, {"item_name": "Bar"}, {"item_name": "Baz"}]
+
 
 @app.get("/")
 async def root(request: Request):
-    return {"message": "Hello World", "root_path": request.scope.get("root_path")}
+    return {"message": "Hello World"}
 
 @app.get("/app")
 def read_main(request: Request):
     return {"message": "App!", "root_path": request.scope.get("root_path")}
+
+#@app.get("/items/")
+#async def read_item(skip: int = 0, limit: int = 10):
+#    return fake_items_db[skip : skip + limit]
+@app.post("/items/")
+async def create_item(item: Item):
+    return item
+    
+@app.get("/items/{item_id}")
+async def read_item(item_id: str, q: Union[str, None] = None, short: bool = False):
+    item = {"item_id": item_id}
+    if q:
+        item.update({"q": q})
+    if not short:
+        item.update(
+            {"description": "This is an amazing item that has a long description"}
+        )
+    return item
+
+@app.get("/users")
+async def read_users():
+    return ["Rick", "Morty"]
+
+@app.get("/models/{model_name}")
+async def get_model(model_name: ModelName):
+    if model_name == ModelName.alexnet:
+        return {"model_name": model_name, "message": "Deep Learning FTW!"}
+
+    if model_name.value == "lenet":
+        return {"model_name": model_name, "message": "LeCNN all the images"}
+
+    return {"model_name": model_name, "message": "Have some residuals"}
+
+@app.get("/files/{file_path:path}")
+async def read_file(file_path: str):
+    return {"file_path": file_path}
